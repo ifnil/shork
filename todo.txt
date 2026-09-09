@@ -1,0 +1,1 @@
+TODO: remove width calcs from components, handle in main tui

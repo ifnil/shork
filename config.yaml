@@ -1,0 +1,3 @@
+ssh_config_path: "~/.ssh/config"
+groups:
+  all: ["gelato", "maple"]
