@@ -10,37 +10,6 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-var padding = 1
-
-type styles struct {
-	title        lipgloss.Style
-	item         lipgloss.Style
-	selectedItem lipgloss.Style
-	pagination   lipgloss.Style
-	help         lipgloss.Style
-	quitText     lipgloss.Style
-}
-
-func newStyles(darkBG bool) styles {
-	// padding := 1
-	// var s styles
-	// s.title = lipgloss.NewStyle()
-	// s.item = lipgloss.NewStyle().PaddingLeft(padding).PaddingRight(3)
-	// s.selectedItem = lipgloss.NewStyle().PaddingLeft(padding).PaddingRight(3).Foreground(lipgloss.Color("170"))
-	// s.pagination = list.DefaultStyles(darkBG).PaginationStyle.PaddingLeft(4)
-	// s.quitText = lipgloss.NewStyle().Margin(1, 0, 2, 4)
-
-	var s styles
-	s.title = lipgloss.NewStyle()
-	s.item = lipgloss.NewStyle().PaddingLeft(padding).PaddingRight(padding)
-	s.selectedItem = lipgloss.NewStyle().Foreground(lipgloss.Color("170")).
-		PaddingLeft(padding).PaddingRight(padding)
-
-	s.pagination = list.DefaultStyles(darkBG).PaginationStyle
-	s.quitText = lipgloss.NewStyle().Margin(1, 0, 2, 4)
-	return s
-}
-
 type item struct{ title string }
 
 func (i item) FilterValue() string { return "" }

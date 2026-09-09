@@ -13,6 +13,7 @@ import (
 	"github.com/ifnil/shork/tui/output"
 	"github.com/ifnil/shork/tui/run"
 	"github.com/ifnil/shork/tui/status"
+	"github.com/ifnil/shork/tui/tabbar"
 )
 
 type Model struct {
@@ -26,6 +27,7 @@ type Model struct {
 	run    run.Model
 	hosts  hosts.Model
 	output output.Model
+	tabs   tabbar.Model
 }
 
 func NewModel() (Model, error) {
@@ -40,6 +42,7 @@ func NewModel() (Model, error) {
 	return Model{
 		status: status.New(),
 		output: output.New(),
+		tabs:   tabbar.New(),
 		run:    run.New(),
 		hist:   list.New(),
 		hosts:  h,
@@ -71,6 +74,14 @@ func (m *Model) updateFocused(msg tea.Msg) tea.Cmd {
 	return cmd
 }
 
+func (m Model) capturing() bool {
+	switch m.focus {
+	case paneRun:
+		return m.run.Capturing()
+	}
+	return false
+}
+
 func (m *Model) broadcast(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -87,19 +98,20 @@ func (m *Model) broadcast(msg tea.Msg) tea.Cmd {
 	m.run, cmd = m.run.Update(msg)
 	cmds = append(cmds, cmd)
 
+	m.tabs, cmd = m.tabs.Update(msg)
+	cmds = append(cmds, cmd)
+
 	return tea.Batch(cmds...)
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.hosts.Init(), m.status.Init(), m.run.Init(), m.output.Init())
-}
-
-func (m Model) capturing() bool {
-	switch m.focus {
-	case paneRun:
-		return m.run.Capturing()
-	}
-	return false
+	return tea.Batch(
+		m.hosts.Init(),
+		m.status.Init(),
+		m.run.Init(),
+		m.output.Init(),
+		m.tabs.Init(),
+	)
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -117,6 +129,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.output.SetSize(l.Output.W, l.Output.H)
 		m.hosts.SetSize(l.Hosts.W, l.Hosts.H)
 		m.status.SetSize(l.Status.W, l.Status.H)
+		m.tabs.SetSize(l.Tabs.W, l.Tabs.H)
 
 		return m, nil
 
@@ -133,9 +146,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 				m.run.Release()
-
-				// send command
-				// push to hist
 				m.hist.PushBack(m.run.Value())
 				m.run.Clear()
 
@@ -173,6 +183,7 @@ func (m Model) View() tea.View {
 			m.hosts.View(),
 			lipgloss.JoinVertical(
 				lipgloss.Left,
+				m.tabs.View(),
 				m.output.View(),
 				m.run.View(),
 			),

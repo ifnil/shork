@@ -24,10 +24,9 @@ type Model struct {
 	selected map[string]struct{}
 }
 
+// TODO: make more robust
 func NewModel() (Model, error) {
 	hm := host.NewHostMap()
-
-	// TODO: make more robust
 	if err := hm.LoadSSHConfig(viper.GetString("ssh_config_path")); err != nil {
 		return Model{}, err
 	}
@@ -61,21 +60,13 @@ func NewModel() (Model, error) {
 	return m, nil
 }
 
+func (m *Model) Blur()  { m.focused = false }
+func (m *Model) Focus() { m.focused = true }
 func (m *Model) SetSize(w, h int) {
 	m.width, m.height = w, h
 	m.list.SetSize(w-2, h-3)
 }
 
-func (m *Model) updateStyles(isDark bool) {
-	m.styles = newStyles(isDark)
-	m.list.Styles.Title = m.styles.title
-	m.list.Styles.PaginationStyle = m.styles.pagination
-	m.list.Styles.HelpStyle = m.styles.help
-	m.list.SetDelegate(itemDelegate{styles: &m.styles, selected: m.selected})
-}
-
-func (m *Model) Blur()        { m.focused = false }
-func (m *Model) Focus()       { m.focused = true }
 func (m Model) Init() tea.Cmd { return nil }
 
 func (m Model) Selected() []string {

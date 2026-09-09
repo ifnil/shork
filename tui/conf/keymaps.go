@@ -12,7 +12,8 @@ type KeyMap struct {
 	Release   key.Binding
 	Insert    key.Binding
 
-	Capturing Capturing
+	Capturing  Capturing
+	HostKeyMap HostKeyMap
 }
 
 type HostKeyMap struct {
@@ -42,5 +43,10 @@ var DefaultKeyMap = KeyMap{
 		Enter:    key.NewBinding(key.WithKeys("enter"), key.WithHelp("<enter>", "confirm")),
 		HistUp:   key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("<up>", "history up")),
 		HistDown: key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("<down>", "history down")),
+	},
+
+	HostKeyMap: HostKeyMap{
+		Info: key.NewBinding(key.WithKeys("i")),
+		Ping: key.NewBinding(key.WithKeys("p")),
 	},
 }

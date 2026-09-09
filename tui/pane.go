@@ -5,6 +5,7 @@ type pane int
 const (
 	paneHosts pane = iota
 	paneRun
+	paneTabs
 	paneCount // sentinel
 )
 
