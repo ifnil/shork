@@ -14,6 +14,7 @@ type Model struct {
 	focused       bool
 	capturing     bool
 	content       string
+	style         lipgloss.Style
 	t             textinput.Model
 }
 
@@ -22,7 +23,12 @@ func New() Model {
 	t.Placeholder = "cmd..."
 	t.SetVirtualCursor(true)
 
-	return Model{t: t, height: 1, focused: false}
+	return Model{
+		t:       t,
+		height:  1,
+		focused: false,
+		style:   lipgloss.NewStyle(),
+	}
 }
 
 func (m *Model) Blur()    { m.focused = false }
@@ -30,6 +36,11 @@ func (m *Model) Focus()   { m.focused = true }
 func (m *Model) Clear()   { m.t.Reset() }
 func (m *Model) Capture() { m.capturing = true; m.t.Focus() }
 func (m *Model) Release() { m.capturing = false; m.content = m.t.Value(); m.t.Blur() }
+
+func (m *Model) SetSize(w, h int) {
+	m.width, m.height = w, h
+	m.t.SetWidth(w)
+}
 
 func (m Model) Capturing() bool { return m.capturing }
 func (m Model) Value() string   { return m.t.Value() }
@@ -43,13 +54,6 @@ func (m Model) Set(v string) tea.Cmd {
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.width = helpers.Percent(msg.Width, 0.9)
-		m.height = min(helpers.Percent(msg.Height, 0.1), 1)
-
-		m.t.SetWidth(m.width)
-		return m, nil
-
 	case SetValueMsg:
 		m.t.SetValue(string(msg))
 		return m, nil

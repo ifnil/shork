@@ -1,7 +1,6 @@
 package helpers
 
 import (
-	"math"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -10,9 +9,13 @@ import (
 func TitledBox(title, body string, style lipgloss.Style) string {
 	b := style.GetBorderStyle()
 
-	inner := style.BorderTop(false).Render(body)
+	inner := style.BorderTop(false)
+	if h := style.GetHeight(); h > 0 {
+		inner = inner.Height(h - 1)
+	}
+	rendered := inner.Render(body)
 
-	boxW := lipgloss.Width(inner)
+	boxW := lipgloss.Width(rendered)
 	fill := boxW - lipgloss.Width(b.TopLeft) - lipgloss.Width(b.TopRight)
 
 	label := " " + title + " "
@@ -23,9 +26,5 @@ func TitledBox(title, body string, style lipgloss.Style) string {
 		Foreground(style.GetBorderTopForeground()).
 		Render(top)
 
-	return top + "\n" + inner
-}
-
-func Percent(w int, p float64) int {
-	return int(math.Round(float64(w) * p))
+	return top + "\n" + rendered
 }

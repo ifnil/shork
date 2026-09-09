@@ -61,6 +61,11 @@ func NewModel() (Model, error) {
 	return m, nil
 }
 
+func (m *Model) SetSize(w, h int) {
+	m.width, m.height = w, h
+	m.list.SetSize(w-2, h-3)
+}
+
 func (m *Model) updateStyles(isDark bool) {
 	m.styles = newStyles(isDark)
 	m.list.Styles.Title = m.styles.title
@@ -101,14 +106,6 @@ func (m Model) hostInfoCmd() tea.Cmd {
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
-
-	case tea.WindowSizeMsg:
-		// m.width, m.height = msg.Width, msg.Height
-		m.height = msg.Height - 2
-		m.width = helpers.Percent(msg.Width, 0.1)
-		m.list.SetSize(m.width, m.height)
-		return m, nil
-
 	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, conf.DefaultKeyMap.Select):
@@ -137,6 +134,7 @@ func (m Model) View() string {
 
 	style := lipgloss.NewStyle().
 		Width(m.width).
+		Height(m.height).
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(border)
 

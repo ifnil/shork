@@ -111,7 +111,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		return m, m.broadcast(msg)
+
+		l := Compute(msg.Width, msg.Height)
+		m.run.SetSize(l.Run.W, l.Run.H)
+		m.output.SetSize(l.Output.W, l.Output.H)
+		m.hosts.SetSize(l.Hosts.W, l.Hosts.H)
+		m.status.SetSize(l.Status.W, l.Status.H)
+
+		return m, nil
 
 	case tea.KeyPressMsg:
 		if key.Matches(msg, conf.DefaultKeyMap.ForceQuit) {
@@ -155,18 +162,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	}
-
 	return m, m.updateFocused(msg)
 }
 
 func (m Model) View() tea.View {
-	// style := lipgloss.NewStyle().
-	// 	Width(m.width - lipgloss.Width(m.hosts.View())).
-	// 	Height(m.height - lipgloss.Height(m.run.View()) - lipgloss.Height(m.status.View())).
-	// 	Border(lipgloss.NormalBorder())
-
-	// TODO: fix widths and heights
-
 	body := lipgloss.JoinVertical(
 		lipgloss.Left,
 		lipgloss.JoinHorizontal(
@@ -178,6 +177,7 @@ func (m Model) View() tea.View {
 				m.run.View(),
 			),
 		),
+		m.status.View(),
 	)
 
 	view := tea.NewView(body)

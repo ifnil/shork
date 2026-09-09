@@ -2,19 +2,6 @@ package conf
 
 import "charm.land/bubbles/v2/key"
 
-type HostKeyMap struct {
-	Info    key.Binding
-	Exec    key.Binding
-	Session key.Binding
-	Ping    key.Binding
-}
-
-type Capturing struct {
-	Enter    key.Binding
-	HistUp   key.Binding
-	HistDown key.Binding
-}
-
 type KeyMap struct {
 	NextPane  key.Binding
 	PrevPane  key.Binding
@@ -26,6 +13,19 @@ type KeyMap struct {
 	Insert    key.Binding
 
 	Capturing Capturing
+}
+
+type HostKeyMap struct {
+	Info    key.Binding
+	Exec    key.Binding
+	Session key.Binding
+	Ping    key.Binding
+}
+
+type Capturing struct {
+	Enter    key.Binding
+	HistUp   key.Binding
+	HistDown key.Binding
 }
 
 var DefaultKeyMap = KeyMap{

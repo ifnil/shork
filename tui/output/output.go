@@ -4,7 +4,6 @@ import (
 	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/ifnil/shork/tui/helpers"
 )
 
 type Model struct {
@@ -18,18 +17,12 @@ func New() Model {
 	return Model{t: t}
 }
 
-func (m Model) Init() tea.Cmd {
-	return nil
-}
+func (m *Model) SetSize(w, h int) { m.width, m.height = w, h }
 
+func (m Model) Init() tea.Cmd { return nil }
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		h := helpers.Percent(msg.Height, 0.9)
-		w := helpers.Percent(msg.Width, 0.9)
-		m.width = w
-		m.height = int(h)
-	}
+	// switch msg := msg.(type) {
+	// }
 	return m, nil
 }
 

@@ -1,6 +1,7 @@
 package util
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,4 +27,8 @@ func ExpandPath(path string) (string, error) {
 		return "", err
 	}
 	return absPath, nil
+}
+
+func Pct(x int, p float64) int {
+	return int(math.Round(float64(x) * p))
 }

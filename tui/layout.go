@@ -1,28 +1,25 @@
 package tui
 
-// calculate grid
-// arrange, track, and assign tiles
-
-const (
-	tileSize = 1
-)
-
-type tile struct {
-	w, h, x, y int
-}
-
+type Rect struct{ W, H int }
 type Layout struct {
-	Width, Height int
-	grid          []tile
+	Hosts  Rect
+	Run    Rect
+	Status Rect
+	Output Rect
 }
 
-func NewLayout(w, h int) Layout {
-	g := make([]tile, w*h)
+func Compute(w, h int) Layout {
+	const (
+		hostsW  = 24 // fixed sidebar
+		runH    = 3  // one text row + border
+		statusH = 1  // no border
+	)
 
+	bodyH := h - statusH
 	return Layout{
-		Width:  w,
-		Height: h,
-
-		grid: g,
+		Hosts:  Rect{hostsW, bodyH},
+		Output: Rect{w - hostsW, bodyH - runH},
+		Run:    Rect{w - hostsW, runH},
+		Status: Rect{w, statusH},
 	}
 }
