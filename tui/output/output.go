@@ -31,7 +31,7 @@ type Model struct {
 func New() Model {
 	vp := viewport.New()
 	vp.SoftWrap = true
-	// vp.MouseWheelEnabled = true
+	vp.MouseWheelEnabled = true
 	vp.LeftGutterFunc = func(gc viewport.GutterContext) string {
 		ts := time.Now().Format(time.TimeOnly)
 		gutter := fmt.Sprintf("%s ", ts)

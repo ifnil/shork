@@ -13,9 +13,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-// TODO: cmd flag
-// TODO: passphrase support
-// TODO: logging
 // FUN: lol, make host implement io.Reader/io.Writer
 
 var cfgFile string
