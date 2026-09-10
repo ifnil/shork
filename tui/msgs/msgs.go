@@ -10,3 +10,5 @@ type HostResult struct {
 }
 
 type SpawnModal struct{}
+
+type ModalResult struct{ OK bool }

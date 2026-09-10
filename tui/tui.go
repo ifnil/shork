@@ -3,6 +3,7 @@ package tui
 import (
 	"container/list"
 	"context"
+	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -11,6 +12,7 @@ import (
 	"github.com/ifnil/shork/internal/runner"
 	"github.com/ifnil/shork/tui/conf"
 	"github.com/ifnil/shork/tui/hosts"
+	"github.com/ifnil/shork/tui/modal"
 	"github.com/ifnil/shork/tui/msgs"
 	"github.com/ifnil/shork/tui/output"
 	"github.com/ifnil/shork/tui/run"
@@ -18,12 +20,16 @@ import (
 	"github.com/ifnil/shork/tui/tabbar"
 )
 
+type pendingRun struct {
+	hosts []string
+	cmd   string
+}
+
 type Model struct {
 	ctx           context.Context
 	width, height int
 	focus         pane
 	content       string
-	modalVisible  bool
 
 	hosts  hosts.Model
 	tabs   tabbar.Model
@@ -31,10 +37,11 @@ type Model struct {
 	run    run.Model
 	status status.Model
 
-	modal Modal
+	modal modal.Modal
 
-	layout Layout
-	hist   *list.List
+	layout  Layout
+	hist    *list.List
+	pending *pendingRun
 
 	rr *runner.Runner
 }
@@ -57,7 +64,7 @@ func NewModel(ctx context.Context, rr *runner.Runner) (Model, error) {
 		tabs:   tabbar.New(),
 		run:    run.New(),
 
-		modal: NewModal("empty"),
+		modal: modal.New(),
 		hist:  list.New(),
 		rr:    rr,
 	}, nil
@@ -87,11 +94,6 @@ func (m *Model) updateFocused(msg tea.Msg) tea.Cmd {
 	return cmd
 }
 
-func (m *Model) toggleModal() {
-	m.modalVisible = !m.modalVisible
-}
-
-// broadcast is not currently  used, but we'll keep it around
 func (m *Model) broadcast(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -136,9 +138,9 @@ func (m Model) Init() tea.Cmd {
 	)
 }
 
+// TODO: move
 // runs the command using the internal runner
 // and returns the result wrapped in a tea.Msg
-// NOTE: move to msgs
 type RunResult struct {
 	Host   string
 	Result string
@@ -148,7 +150,10 @@ func (m Model) runCmd(host, cmd string) tea.Cmd {
 	return func() tea.Msg {
 		r := m.rr.RunCmd(m.ctx, host, cmd)
 		if r.Err != nil {
-			return nil
+			return RunResult{
+				Host:   host,
+				Result: r.Err.Error(),
+			}
 		}
 
 		return RunResult{
@@ -158,14 +163,31 @@ func (m Model) runCmd(host, cmd string) tea.Cmd {
 	}
 }
 
-//---
+func (m Model) runPending(p pendingRun) tea.Cmd {
+	cmds := make([]tea.Cmd, 0, len(p.hosts))
+	for _, h := range p.hosts {
+		cmds = append(cmds, m.runCmd(h, p.cmd))
+	}
+	return tea.Batch(cmds...)
+}
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
-	// request to spawn a modal
-	case msgs.SpawnModal:
-		// i'm aware this is empty
+	// modal result
+	case msgs.ModalResult:
+		m.modal.Close()
+		p := m.pending
+		m.pending = nil
+		if p == nil || !msg.OK {
+			return m, nil
+		}
+
+		return m, m.runPending(*p)
+
+	// ssh command result
+	case RunResult:
+		m.output.AddLine(msg.Host, msg.Result)
 		return m, nil
 
 	// host info
@@ -173,11 +195,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.status, cmd = m.status.Update(msg)
 		return m, cmd
-
-	// ssh command result
-	case RunResult:
-		m.output.AddLine(msg.Host, msg.Result)
-		return m, nil
 
 	// compute layout
 	case tea.WindowSizeMsg:
@@ -197,41 +214,53 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
+		if m.modal.Active() {
+			var cmd tea.Cmd
+			m.modal, cmd = m.modal.Update(msg)
+			return m, cmd
+		}
+
 		// insert mode keybinds
 		if m.capturing() {
-			// TODO: get selected hosts
 			switch {
 			case key.Matches(msg, conf.DefaultKeyMap.InsertMode.Enter):
 				if m.run.Value() == "" {
 					return m, nil
 				}
-				m.run.Release()
+
+				hosts := m.hosts.Selected()
+				if len(hosts) == 0 {
+					return m, nil
+				}
+
 				c := m.run.Value()
+				m.run.Release()
 				m.hist.PushBack(c)
 				m.run.Clear()
 
-				// TODO: confirm modal
-				return m, m.runCmd(m.hosts.Selected()[0], c)
+				m.pending = &pendingRun{
+					hosts: hosts,
+					cmd:   c,
+				}
+				return m, m.modal.Open("confirm", modal.NewConfirm(
+					fmt.Sprintf("run %q on %d host(s)?", c, len(hosts)),
+				))
 
+			// return to normal
 			case key.Matches(msg, conf.DefaultKeyMap.Release):
 				m.run.Release()
 				return m, nil
 			}
+
 			return m, m.updateFocused(msg)
 		}
 
 		// normal mode keybinds
 		switch {
-		case key.Matches(msg, conf.DefaultKeyMap.Debug):
-			m.toggleModal()
-			return m, nil
+		// case key.Matches(msg, conf.DefaultKeyMap.Debug):
+		// 	m.modal.Open("confirm", modal.NewConfirm("working?"))
 
 		case key.Matches(msg, conf.DefaultKeyMap.Quit):
-			// close modal instead of quitting
-			if m.modalVisible {
-				m.toggleModal()
-				return m, nil
-			}
 			return m, tea.Quit
 		case key.Matches(msg, conf.DefaultKeyMap.NextPane):
 			m.setFocus(m.focus.next())
@@ -263,9 +292,8 @@ func (m Model) View() tea.View {
 	)
 
 	// modals will need an explicit Z value set
-	if m.modalVisible {
-		p := l.Body.Center(lipgloss.Width(m.modal.View()), lipgloss.Height(m.modal.View()))
-		c.AddLayers(p.CenterLayer(m.modal.View()).Z(1))
+	if m.modal.Active() {
+		c.AddLayers(l.Body.CenterLayer(m.modal.View()).Z(1))
 	}
 
 	view := tea.NewView(

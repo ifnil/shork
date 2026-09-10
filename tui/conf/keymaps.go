@@ -20,7 +20,14 @@ type KeyMap struct {
 }
 
 type ModalKeyMap struct {
-	Close key.Binding
+	Close   key.Binding
+	Cancel  key.Binding
+	Confirm key.Binding
+	Yes     key.Binding
+	No      key.Binding
+	Accept  key.Binding
+	Deny    key.Binding
+	Toggle  key.Binding
 }
 
 type HostKeyMap struct {
@@ -60,6 +67,11 @@ var DefaultKeyMap = KeyMap{
 	},
 
 	ModalKeyMap: ModalKeyMap{
-		Close: key.NewBinding(key.WithKeys("q")),
+		Close:  key.NewBinding(key.WithKeys("q")),
+		Cancel: key.NewBinding(key.WithKeys("esc")),
+		Accept: key.NewBinding(key.WithKeys("enter")),
+		Yes:    key.NewBinding(key.WithKeys("y")),
+		No:     key.NewBinding(key.WithKeys("n")),
+		Toggle: key.NewBinding(key.WithKeys("tab", "left", "right", "j", "k")),
 	},
 }
