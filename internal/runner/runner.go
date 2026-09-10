@@ -25,6 +25,10 @@ func NewRunner(kr *sshx.Keyring, hm *host.HostMap, gm groups.GroupMap) *Runner {
 	return &Runner{kr: kr, hm: hm, gm: gm}
 }
 
+func (r *Runner) HostMap() *host.HostMap {
+	return r.hm
+}
+
 // RunCmd executes a command on a host
 func (r *Runner) RunCmd(ctx context.Context, hostname, cmd string) Result {
 	h := r.hm.Get(hostname)
@@ -81,6 +85,21 @@ func (r *Runner) RunGroupCmd(ctx context.Context, group, cmd string) error {
 	return nil
 }
 
+// RunAdHoc runs a command on a specified set of hosts
 func (r *Runner) RunAdHoc(ctx context.Context, cmd string, hosts ...string) error {
+	return nil
+}
+
+func (r *Runner) RunSeveral(ctx context.Context, hosts []string, cmd string) error {
+
+	// validate that selected hosts are configured
+	for _, hn := range hosts {
+		h := r.hm.Get(hn)
+
+		// hmmmmm
+		if h.HostName != hn {
+			continue
+		}
+	}
 	return nil
 }

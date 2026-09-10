@@ -41,7 +41,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	fn := d.styles.item.Render
 	if index == m.Index() {
 		fn = func(s ...string) string {
-			return d.styles.selectedItem.PaddingLeft(-1).Render("•" + strings.Join(s, " "))
+			return d.styles.selectedItem.PaddingLeft(-1).Render("• " + strings.Join(s, " "))
 		}
 	}
 

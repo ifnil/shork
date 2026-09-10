@@ -3,10 +3,12 @@ package tui
 import (
 	"container/list"
 	"context"
+	"strings"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/ifnil/shork/internal/runner"
 	"github.com/ifnil/shork/tui/conf"
 	"github.com/ifnil/shork/tui/hosts"
 	"github.com/ifnil/shork/tui/msgs"
@@ -17,21 +19,28 @@ import (
 )
 
 type Model struct {
-	width   int
-	height  int
-	focus   pane
-	content string
-	hist    *list.List
+	ctx           context.Context
+	width, height int
+	focus         pane
+	content       string
+	modalVisible  bool
 
-	status status.Model
-	run    run.Model
 	hosts  hosts.Model
-	output output.Model
 	tabs   tabbar.Model
+	output output.Model
+	run    run.Model
+	status status.Model
+
+	modal Modal
+
+	layout Layout
+	hist   *list.List
+
+	rr *runner.Runner
 }
 
-func NewModel() (Model, error) {
-	h, err := hosts.NewModel()
+func NewModel(ctx context.Context, rr *runner.Runner) (Model, error) {
+	h, err := hosts.NewModel(rr)
 	if err != nil {
 		return Model{
 			status: status.New(),
@@ -40,12 +49,17 @@ func NewModel() (Model, error) {
 
 	h.Focus()
 	return Model{
+		ctx: ctx,
+
+		hosts:  h,
 		status: status.New(),
 		output: output.New(),
 		tabs:   tabbar.New(),
 		run:    run.New(),
-		hist:   list.New(),
-		hosts:  h,
+
+		modal: NewModal("empty"),
+		hist:  list.New(),
+		rr:    rr,
 	}, nil
 }
 
@@ -70,18 +84,14 @@ func (m *Model) updateFocused(msg tea.Msg) tea.Cmd {
 	case paneRun:
 		m.run, cmd = m.run.Update(msg)
 	}
-
 	return cmd
 }
 
-func (m Model) capturing() bool {
-	switch m.focus {
-	case paneRun:
-		return m.run.Capturing()
-	}
-	return false
+func (m *Model) toggleModal() {
+	m.modalVisible = !m.modalVisible
 }
 
+// broadcast is not currently  used, but we'll keep it around
 func (m *Model) broadcast(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -101,7 +111,18 @@ func (m *Model) broadcast(msg tea.Msg) tea.Cmd {
 	m.tabs, cmd = m.tabs.Update(msg)
 	cmds = append(cmds, cmd)
 
+	m.modal, cmd = m.modal.Update(msg)
+	cmds = append(cmds, cmd)
+
 	return tea.Batch(cmds...)
+}
+
+func (m Model) capturing() bool {
+	switch m.focus {
+	case paneRun:
+		return m.run.Capturing()
+	}
+	return false
 }
 
 func (m Model) Init() tea.Cmd {
@@ -111,45 +132,86 @@ func (m Model) Init() tea.Cmd {
 		m.run.Init(),
 		m.output.Init(),
 		m.tabs.Init(),
+		m.modal.Init(),
 	)
 }
 
+// runs the command using the internal runner
+// and returns the result wrapped in a tea.Msg
+// NOTE: move to msgs
+type RunResult struct {
+	Host   string
+	Result string
+}
+
+func (m Model) runCmd(host, cmd string) tea.Cmd {
+	return func() tea.Msg {
+		r := m.rr.RunCmd(m.ctx, host, cmd)
+		if r.Err != nil {
+			return nil
+		}
+
+		return RunResult{
+			Host:   host,
+			Result: strings.Trim(r.Output, "\n"),
+		}
+	}
+}
+
+//---
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+
+	// request to spawn a modal
+	case msgs.SpawnModal:
+		// i'm aware this is empty
+		return m, nil
+
+	// host info
 	case msgs.HostInfo:
 		var cmd tea.Cmd
 		m.status, cmd = m.status.Update(msg)
 		return m, cmd
 
-	case tea.WindowSizeMsg:
-		m.width, m.height = msg.Width, msg.Height
-
-		l := Compute(msg.Width, msg.Height)
-		m.run.SetSize(l.Run.W, l.Run.H)
-		m.output.SetSize(l.Output.W, l.Output.H)
-		m.hosts.SetSize(l.Hosts.W, l.Hosts.H)
-		m.status.SetSize(l.Status.W, l.Status.H)
-		m.tabs.SetSize(l.Tabs.W, l.Tabs.H)
-
+	// ssh command result
+	case RunResult:
+		m.output.AddLine(msg.Host, msg.Result)
 		return m, nil
 
+	// compute layout
+	case tea.WindowSizeMsg:
+		m.width, m.height = msg.Width, msg.Height
+		m.layout = Compute(msg.Width, msg.Height)
+
+		m.run.SetSize(m.layout.Run.W, m.layout.Run.H)
+		m.output.SetSize(m.layout.Output.W, m.layout.Output.H)
+		m.hosts.SetSize(m.layout.Hosts.W, m.layout.Hosts.H)
+		m.status.SetSize(m.layout.Status.W, m.layout.Status.H)
+		m.tabs.SetSize(m.layout.Tabs.W, m.layout.Tabs.H)
+		return m, nil
+
+	// handle keys
 	case tea.KeyPressMsg:
 		if key.Matches(msg, conf.DefaultKeyMap.ForceQuit) {
 			return m, tea.Quit
 		}
 
+		// insert mode keybinds
 		if m.capturing() {
+			// TODO: get selected hosts
 			switch {
-			case key.Matches(msg, conf.DefaultKeyMap.Capturing.Enter):
+			case key.Matches(msg, conf.DefaultKeyMap.InsertMode.Enter):
 				if m.run.Value() == "" {
 					return m, nil
 				}
-
 				m.run.Release()
-				m.hist.PushBack(m.run.Value())
+				c := m.run.Value()
+				m.hist.PushBack(c)
 				m.run.Clear()
 
-				return m, nil
+				// TODO: confirm modal
+				return m, m.runCmd(m.hosts.Selected()[0], c)
 
 			case key.Matches(msg, conf.DefaultKeyMap.Release):
 				m.run.Release()
@@ -158,8 +220,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.updateFocused(msg)
 		}
 
+		// normal mode keybinds
 		switch {
+		case key.Matches(msg, conf.DefaultKeyMap.Debug):
+			m.toggleModal()
+			return m, nil
+
 		case key.Matches(msg, conf.DefaultKeyMap.Quit):
+			// close modal instead of quitting
+			if m.modalVisible {
+				m.toggleModal()
+				return m, nil
+			}
 			return m, tea.Quit
 		case key.Matches(msg, conf.DefaultKeyMap.NextPane):
 			m.setFocus(m.focus.next())
@@ -172,32 +244,40 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	}
-	return m, m.updateFocused(msg)
+	return m, m.broadcast(msg)
 }
 
 func (m Model) View() tea.View {
-	body := lipgloss.JoinVertical(
-		lipgloss.Left,
-		lipgloss.JoinHorizontal(
-			lipgloss.Bottom,
-			m.hosts.View(),
-			lipgloss.JoinVertical(
-				lipgloss.Left,
-				m.tabs.View(),
-				m.output.View(),
-				m.run.View(),
-			),
-		),
-		m.status.View(),
+	if m.width == 0 || m.height == 0 {
+		return tea.NewView("")
+	}
+
+	// arg order doesn't determine stacking
+	l := m.layout
+	c := lipgloss.NewCompositor(
+		l.Hosts.Layer(m.hosts.View()),
+		l.Tabs.Layer(m.tabs.View()),
+		l.Output.Layer(m.output.View()),
+		l.Run.Layer(m.run.View()),
+		l.Status.Layer(m.status.View()),
 	)
 
-	view := tea.NewView(body)
+	// modals will need an explicit Z value set
+	if m.modalVisible {
+		p := l.Body.Center(lipgloss.Width(m.modal.View()), lipgloss.Height(m.modal.View()))
+		c.AddLayers(p.CenterLayer(m.modal.View()).Z(1))
+	}
+
+	view := tea.NewView(
+		lipgloss.NewCanvas(m.width, m.height).Compose(c).Render(),
+	)
 	view.AltScreen = true
+	view.MouseMode = tea.MouseModeCellMotion
 	return view
 }
 
-func Run(ctx context.Context) error {
-	m, err := NewModel()
+func Run(ctx context.Context, rr *runner.Runner) error {
+	m, err := NewModel(ctx, rr)
 	if err != nil {
 		return err
 	}
@@ -206,6 +286,5 @@ func Run(ctx context.Context) error {
 	if _, err := p.Run(); err != nil {
 		return err
 	}
-
 	return nil
 }

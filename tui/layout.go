@@ -1,15 +1,8 @@
 package tui
 
-type Rect struct{ X, Y, W, H int }
+import "charm.land/lipgloss/v2"
 
-type Layout struct {
-	Hosts  Rect
-	Run    Rect
-	Status Rect
-	Tabs   Rect
-	Output Rect
-	Body   Rect
-}
+type Rect struct{ X, Y, W, H int }
 
 func (r Rect) Center(w, h int) Rect {
 	w, h = min(w, r.W), min(h, r.H)
@@ -18,6 +11,24 @@ func (r Rect) Center(w, h int) Rect {
 		Y: r.Y + (r.H-h)/2,
 		W: w, H: h,
 	}
+}
+
+func (r Rect) CenterLayer(s string) *lipgloss.Layer {
+	c := r.Center(lipgloss.Width(s), lipgloss.Height(s))
+	return c.Layer(s)
+}
+
+func (r Rect) Layer(s string) *lipgloss.Layer {
+	return lipgloss.NewLayer(s).X(r.X).Y(r.Y)
+}
+
+type Layout struct {
+	Hosts  Rect
+	Run    Rect
+	Status Rect
+	Tabs   Rect
+	Output Rect
+	Body   Rect
 }
 
 func Compute(w, h int) Layout {
@@ -29,7 +40,8 @@ func Compute(w, h int) Layout {
 	)
 
 	bodyH := h - statusH
-	rightX, rightW := hostsW, w-hostsW
+	rightX, rightW := hostsW, w-hostsW // offsets from hosts panel
+
 	return Layout{
 		Hosts:  Rect{X: 0, Y: 0, W: hostsW, H: bodyH},
 		Tabs:   Rect{X: rightX, Y: 0, W: rightW, H: tabsH},

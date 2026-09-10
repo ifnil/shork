@@ -1,7 +1,12 @@
 package msgs
 
-type HostInfo struct{ Addr string }
-type SetSize struct{ W, H int }
+import "github.com/ifnil/shork/internal/host"
 
-type SetWidth int
-type SetHeight int
+type HostInfo struct{ Addr string }
+
+type HostResult struct {
+	Host   host.Host
+	Result string
+}
+
+type SpawnModal struct{}

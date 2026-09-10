@@ -8,10 +8,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/ifnil/shork/internal/host"
+	"github.com/ifnil/shork/internal/runner"
 	"github.com/ifnil/shork/tui/conf"
 	"github.com/ifnil/shork/tui/helpers"
 	"github.com/ifnil/shork/tui/msgs"
-	"github.com/spf13/viper"
 )
 
 type Model struct {
@@ -25,11 +25,13 @@ type Model struct {
 }
 
 // TODO: make more robust
-func NewModel() (Model, error) {
-	hm := host.NewHostMap()
-	if err := hm.LoadSSHConfig(viper.GetString("ssh_config_path")); err != nil {
-		return Model{}, err
-	}
+func NewModel(rr *runner.Runner) (Model, error) {
+	// hm := host.NewHostMap()
+	// if err := hm.LoadSSHConfig(viper.GetString("ssh_config_path")); err != nil {
+	// 	return Model{}, err
+	// }
+
+	hm := rr.HostMap()
 
 	items := []list.Item{}
 	sortedItems := []string{}
